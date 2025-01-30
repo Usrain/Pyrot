@@ -91,7 +91,7 @@ def add_subtitles_to_video(video_path, audio_path, output_video_path):
     temp_output_video_path = "temp_video.mp4"
     out = cv2.VideoWriter(temp_output_video_path, fourcc, fps, (width, height))
     frame_count = 0
-    LimiteVideoOneMinute= fps*60
+    LimiteVideoOneMinute = fps * 60
     print(LimiteVideoOneMinute)
     while cap.isOpened():
         ret, frame = cap.read()
@@ -151,8 +151,11 @@ def add_subtitles_to_video(video_path, audio_path, output_video_path):
                     start_y += text_height + 10  # Déplacer vers le bas pour la ligne suivante
 
                 frame = np.array(img_pil)
-        if frame_count > LimiteVideoOneMinute:
+
+        if frame_count >= LimiteVideoOneMinute:
+            print("Limite d'une minute atteinte.")
             break
+
         out.write(frame)
         frame_count += 1
 
@@ -163,8 +166,8 @@ def add_subtitles_to_video(video_path, audio_path, output_video_path):
         out.release()
 
     print("Ajout de l'audio à la vidéo...")
-    original_video = VideoFileClip(temp_output_video_path)
-    original_audio = AudioFileClip(audio_path)
+    original_video = VideoFileClip(temp_output_video_path).subclip(0, 60)  # Limiter la vidéo à 60 secondes
+    original_audio = AudioFileClip(audio_path).subclip(0, 60)  # Limiter l'audio à 60 secondes
     final_video = original_video.set_audio(original_audio)
     final_video.write_videofile(output_video_path, codec="libx264", audio_codec="aac")
 
@@ -174,18 +177,10 @@ def add_subtitles_to_video(video_path, audio_path, output_video_path):
 
     print(f"Vidéo avec sous-titres générée : {output_video_path}")
 
-    text = prompt_to_text('A story about Margot being a bot')
-    filename = NOM_FICHIER_AUDIO
-    text_to_mp3(text, filename)
-    text_to_mp3(text, filename)
-    audio_path = os.path.join(repertoire, NOM_FICHIER_AUDIO)
-    CheminVideo = os.path.join(repertoire, NOM_FICHIER_VIDEO)
-    output_video_path = NOM_FICHIER_VIDEO_CREE
-
-    add_subtitles_to_video(video_path, NOM_FICHIER_AUDIO, output_video_path)
-    add_subtitles_to_video(model, CheminVideo, audio_path, output_video_path)
-
-    add_subtitles_to_video(model, video_path, audio_path, output_video_path)
-    add_subtitles_to_video(CheminVideo, audio_path, output_video_path)
-    add_subtitles_to_video(video_path, audio_path, output_video_path)
-    add_subtitles_to_video(video_path, audio_path, output_video_path)
+text = prompt_to_text('A story about Margot being a bot')
+filename = NOM_FICHIER_AUDIO
+text_to_mp3(text, filename)
+audio_path = os.path.join(repertoire, NOM_FICHIER_AUDIO)
+video_path = os.path.join(repertoire, NOM_FICHIER_VIDEO)
+output_video_path = NOM_FICHIER_VIDEO_CREE
+add_subtitles_to_video(video_path, audio_path, output_video_path)
