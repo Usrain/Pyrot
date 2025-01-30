@@ -43,7 +43,10 @@ def prompt_to_text(prompt):
     A wholesome but surprising act of kindness or redemption.
     Make sure the story ends with a question or an open-ended conclusion to encourage discussion and also focus it aroud this theme :""" +prompt
     response = model.generate_content(Daprompt)
-    return response.candidates[0].content.parts[0].text
+    try:
+        return response.candidates[0].content.parts[0].text
+    except (IndexError, AttributeError) as e:
+        raise ValueError("Unexpected response structure") from e
 
 def text_to_mp3(text, filename):
     session = boto3.Session(
@@ -58,10 +61,11 @@ def text_to_mp3(text, filename):
         VoiceId="Joanna"
     )
 
-    with open(filename, "wb") as file:
-        file.write(reponse['AudioStream'].read())
-        print(f"Le fichier suivant a été généré : {filename}")
-
+    if 'AudioStream' in reponse:
+        with open(filename, "wb") as file:
+            file.write(reponse['AudioStream'].read())
+            print(f"Le fichier suivant a été généré : {filename}")
+            
 def add_subtitles_to_video(video_path, audio_path, output_video_path):
     # Chargement du modèle Whisper pour la transcription
     model = whisper.load_model("base")
@@ -147,14 +151,16 @@ def add_subtitles_to_video(video_path, audio_path, output_video_path):
                     start_y += text_height + 10  # Déplacer vers le bas pour la ligne suivante
 
                 frame = np.array(img_pil)
-
-        # Écriture de la frame dans le fichier temporaire
+        if frame_count > LimiteVideoOneMinute:
+            break
         out.write(frame)
         frame_count += 1
 
-    # Libération des ressources
-    cap.release()
-    out.release()
+    # Cleanup block to ensure resources are properly released
+    if cap.isOpened():
+        cap.release()
+    if out.isOpened():
+        out.release()
 
     print("Ajout de l'audio à la vidéo...")
     original_video = VideoFileClip(temp_output_video_path)
@@ -163,18 +169,23 @@ def add_subtitles_to_video(video_path, audio_path, output_video_path):
     final_video.write_videofile(output_video_path, codec="libx264", audio_codec="aac")
 
     # Suppression du fichier temporaire
-    os.remove(temp_output_video_path)
+    if os.path.exists(temp_output_video_path):
+        os.remove(temp_output_video_path)
 
     print(f"Vidéo avec sous-titres générée : {output_video_path}")
 
-if __name__ == '__main__':
-    texte = prompt_to_text('A story about Margot being a bot')
+    text = prompt_to_text('A story about Margot being a bot')
     filename = NOM_FICHIER_AUDIO
-    text_to_mp3(texte, filename)
-
+    text_to_mp3(text, filename)
+    text_to_mp3(text, filename)
+    audio_path = os.path.join(repertoire, NOM_FICHIER_AUDIO)
     CheminVideo = os.path.join(repertoire, NOM_FICHIER_VIDEO)
-    CheminAudio = os.path.join(repertoire, NOM_FICHIER_AUDIO)
-    FichierVideoSorti = os.path.join(repertoire, NOM_FICHIER_VIDEO_CREE)
+    output_video_path = NOM_FICHIER_VIDEO_CREE
 
-    # Appel à la fonction pour ajouter les sous-titres à la vidéo
-    add_subtitles_to_video(CheminVideo, CheminAudio, FichierVideoSorti)
+    add_subtitles_to_video(video_path, NOM_FICHIER_AUDIO, output_video_path)
+    add_subtitles_to_video(model, CheminVideo, audio_path, output_video_path)
+
+    add_subtitles_to_video(model, video_path, audio_path, output_video_path)
+    add_subtitles_to_video(CheminVideo, audio_path, output_video_path)
+    add_subtitles_to_video(video_path, audio_path, output_video_path)
+    add_subtitles_to_video(video_path, audio_path, output_video_path)
