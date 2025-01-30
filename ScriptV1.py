@@ -14,7 +14,7 @@ model = genai.GenerativeModel("gemini-1.5-flash")
 repertoire = os.path.dirname(os.path.abspath(__file__))
 NOM_FICHIER_VIDEO = 'JumpMc1.mp4'
 NOM_FICHIER_AUDIO = 'test1.mp3'
-NOM_FICHIER_VIDEO_CREE = 'VideoGenere.mp4'
+
 
 # Vérification des fichiers nécessaires
 if not os.path.exists(NOM_FICHIER_AUDIO):
@@ -29,6 +29,17 @@ if not os.path.exists(font_path):
     raise FileNotFoundError(f"Le fichier de police n'a pas été trouvé à l'emplacement spécifié : {font_path}")
 font_size = 42  # Taille de la police
 font = ImageFont.truetype(font_path, font_size)
+
+def CheckIfFolderExist(folder):
+    if not os.path.exists(folder):
+        os.makedirs(folder)
+    else:
+        # Nettoyer les anciens segments s'ils existent
+        for file in os.listdir(folder):
+            file_path = os.path.join(folder, file)
+            if os.path.isfile(file_path):
+                os.remove(file_path)
+    return 
 
 def prompt_to_text(prompt):
     Daprompt = """Respond only with the raw audio text of the story generate only the audio without you doing an intro and an outro text ,
@@ -69,12 +80,12 @@ def text_to_mp3(text, filename):
 def add_subtitles_to_video(video_path, audio_path, output_video_path):
     # Chargement du modèle Whisper pour la transcription
     model = whisper.load_model("base")
-
+    
     # Transcription de l'audio
     print("Transcription de l'audio...")
     result = model.transcribe(audio_path)
     segments = [(segment['start'], segment['end'], segment['text']) for segment in result['segments']]
-
+    
     # Vérification des segments
     print(f"Nombre de segments transcrits: {len(segments)}")
     for i, (start, end, text) in enumerate(segments[:5]):  # Afficher les 5 premiers segments
@@ -106,7 +117,8 @@ def add_subtitles_to_video(video_path, audio_path, output_video_path):
 
             # Débogage : Afficher les sous-titres ajoutés
             if start_frame <= frame_count <= end_frame:
-                print(f"Ajout du texte '{text}' dans l'intervalle {start_frame}-{end_frame} (frame {frame_count})")
+                if frame_count == start_frame:
+                    print(f"Ajout du texte '{text}' dans l'intervalle {start_frame}-{end_frame} (frame {frame_count})")
 
                 # Diviser le texte en plusieurs lignes si nécessaire
                 words = text.split()
@@ -174,13 +186,48 @@ def add_subtitles_to_video(video_path, audio_path, output_video_path):
     # Suppression du fichier temporaire
     if os.path.exists(temp_output_video_path):
         os.remove(temp_output_video_path)
-
     print(f"Vidéo avec sous-titres générée : {output_video_path}")
 
-text = prompt_to_text('A story about Margot being a bot')
+def audio_spliter(audio_path, output_folder, segment_duration):
+    # Charger l'audio
+    audio = AudioFileClip(audio_path)
+
+    # Créer un dossier de sortie s'il n'existe pas
+    
+    CheckIfFolderExist(output_folder)
+
+    # Diviser l'audio en segments
+    segment_count = 0
+    for t in range(0, int(audio.duration), segment_duration):
+        end_time = min(t + segment_duration, audio.duration)
+        segment = audio.subclip(t, end_time)
+        segment_filename = os.path.join(output_folder, f"segment_{segment_count}.mp3")
+        segment.write_audiofile(segment_filename)
+        print(f"Segment {segment_count} généré : {segment_filename}")
+        segment_count += 1
+
+    print(f"Nombre total de segments générés : {segment_count}")
+
+    return segment_count
+# Génération de l'audio et de la vidéo
+
+text= input("Enter the prompt: ")
+text = prompt_to_text(text)
+
 filename = NOM_FICHIER_AUDIO
+# Création des segments audio
 text_to_mp3(text, filename)
+
 audio_path = os.path.join(repertoire, NOM_FICHIER_AUDIO)
 video_path = os.path.join(repertoire, NOM_FICHIER_VIDEO)
-output_video_path = NOM_FICHIER_VIDEO_CREE
-add_subtitles_to_video(video_path, audio_path, output_video_path)
+# Création des segments audio
+audio_spliter(audio_path, "segments",60)
+# Ajout des sous-titres à chaque segment
+CheckIfFolderExist("GeneratedVideo")
+for file in os.listdir("segments"):
+    file_path = os.path.join("segments", file)
+    output_video_path = os.path.join("GeneratedVideo", f"GeneratedVideo{file}.mp4")
+    try:
+        add_subtitles_to_video(video_path, file_path, output_video_path)
+    except IOError as e:
+        print(f"Error processing file {file_path}: {e}")
