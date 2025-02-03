@@ -224,9 +224,11 @@ video_path = os.path.join(repertoire, NOM_FICHIER_VIDEO)
 audio_spliter(audio_path, "segments",60)
 # Ajout des sous-titres à chaque segment
 CheckIfFolderExist("GeneratedVideo")
+i=0
 for file in os.listdir("segments"):
+    i=i+1
     file_path = os.path.join("segments", file)
-    output_video_path = os.path.join("GeneratedVideo", f"GeneratedVideo{file}.mp4")
+    output_video_path = os.path.join("GeneratedVideo", f"GeneratedVideo_Part{str(i)}.mp4")
     try:
         add_subtitles_to_video(video_path, file_path, output_video_path)
     except IOError as e:
